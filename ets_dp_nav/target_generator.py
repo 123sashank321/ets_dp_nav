@@ -21,11 +21,23 @@ class TargetGenerator(Node):
     def __init__(self):
         super().__init__('target_generator')
         
-        # Parameters
-        self.radius = 5.0  # meters
-        self.height = 2.0  # meters
-        self.frequency = 10.0  # Hz
-        self.angular_velocity = 0.2  # rad/s (completes circle in ~31 seconds)
+        # Declare parameters
+        self.declare_parameter('trajectory_type', 'line')  # 'circle' or 'line'
+        self.declare_parameter('radius', 10.0)
+        self.declare_parameter('height', 10.0)
+        self.declare_parameter('frequency', 10.0)
+        self.declare_parameter('angular_velocity', 0.4)
+        self.declare_parameter('linear_velocity', 0.5)  # For straight line
+        self.declare_parameter('line_distance', 40.0)  # Loop after this distance
+        
+        # Get parameters
+        self.trajectory_type = self.get_parameter('trajectory_type').value
+        self.radius = self.get_parameter('radius').value
+        self.height = self.get_parameter('height').value
+        self.frequency = self.get_parameter('frequency').value
+        self.angular_velocity = self.get_parameter('angular_velocity').value
+        self.linear_velocity = self.get_parameter('linear_velocity').value
+        self.line_distance = self.get_parameter('line_distance').value
         
         # Publisher
         self.goal_pub = self.create_publisher(
@@ -42,8 +54,8 @@ class TargetGenerator(Node):
         self.start_time = None
         
         self.get_logger().info(
-            f'Target Generator started: radius={self.radius}m, '
-            f'height={self.height}m, freq={self.frequency}Hz'
+            f'Target Generator started: type={self.trajectory_type}, '
+            f'radius={self.radius}m, height={self.height}m, freq={self.frequency}Hz'
         )
 
     def publish_goal(self):
@@ -67,12 +79,27 @@ class TargetGenerator(Node):
         # Calculate elapsed time
         elapsed = (current_time - self.start_time).nanoseconds / 1e9
         
-        # Parametric equations for circular motion in ENU frame
-        # Circle in the XY plane at constant height
-        theta = self.angular_velocity * elapsed
-        x = self.radius * math.cos(theta)
-        y = self.radius * math.sin(theta)
-        z = self.height
+        # Calculate position based on trajectory type
+        if self.trajectory_type == 'circle':
+            # Parametric equations for circular motion in ENU frame
+            theta = self.angular_velocity * elapsed
+            x = self.radius * math.cos(theta)
+            y = self.radius * math.sin(theta)
+            z = self.height
+            # Orientation: face tangent to the circle
+            yaw = theta + math.pi / 2.0
+            
+        elif self.trajectory_type == 'line':
+            # Straight line motion along X-axis (with looping)
+            x = (self.linear_velocity * elapsed) % self.line_distance
+            y = 0.0
+            z = self.height
+            # Orientation: face forward (along X-axis)
+            yaw = 0.0
+            
+        else:
+            self.get_logger().error(f'Unknown trajectory type: {self.trajectory_type}')
+            return
         
         # Create and populate message
         msg = PoseStamped()
@@ -82,10 +109,6 @@ class TargetGenerator(Node):
         msg.pose.position.x = x
         msg.pose.position.y = y
         msg.pose.position.z = z
-        
-        # Orientation: face tangent to the circle (forward direction)
-        # Yaw = theta + pi/2 (perpendicular to radius)
-        yaw = theta + math.pi / 2.0
         
         # Convert yaw to quaternion (rotation around z-axis)
         msg.pose.orientation.x = 0.0

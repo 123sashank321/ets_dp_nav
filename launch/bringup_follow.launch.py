@@ -51,14 +51,27 @@ def generate_launch_description():
         default_value=bt_xml_path,
         description='Full path to the behavior tree XML file'
     )
-    
+
+    # Clock bridge
+    clock_bridge_node = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        name='clock_bridge',
+        output='screen',
+        arguments=[
+            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'
+        ],
+    )
     # Target Generator Node
     target_generator_node = Node(
         package='ets_dp_nav',
         executable='target_generator',
         name='target_generator',
         output='screen',
-        parameters=[{'use_sim_time': use_sim_time}],
+        parameters=[{
+            'use_sim_time': use_sim_time,
+            'trajectory_type': 'line'  # 'circle' or 'line'
+        }],
         emulate_tty=True
     )
     
@@ -115,10 +128,12 @@ def generate_launch_description():
     ld.add_action(declare_bt_xml_cmd)
     
     # Add nodes
+    ld.add_action(clock_bridge_node)
     ld.add_action(target_generator_node)
     ld.add_action(nav2_px4_bridge_node)
     ld.add_action(px4_tf_publisher_node)
     ld.add_action(goal_relay_node)
     ld.add_action(nav2_bringup)
+
     
     return ld

@@ -13,7 +13,8 @@ setup(
         ('share/' + package_name + '/launch', ['launch/bringup_follow.launch.py']),
         ('share/' + package_name + '/config', [
             'config/follow_point_bt.xml',
-            'config/nav2_params.yaml'
+            'config/nav2_params.yaml',
+            'config/nav_debug.rviz'
         ]),
     ],
     install_requires=['setuptools'],
